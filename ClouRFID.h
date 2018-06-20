@@ -17,9 +17,9 @@
  */
 // Optmazed for 96 bit EPC and 96 bit TID
 #define RFID_DEBUG_ON         0                          //Allow USB debug messages 0- Off/ 1- High level / 2- High + Low level
-#define ClouRFID_EPC_max_len  12                          //Len of EPC code - 208bits / 26 bytes
-#define ClouRFID_TID_max_len  0                          //Len of TID code - 112bits / 14 bytes
-#define ClouRFID_MaxDataLen   12+ClouRFID_TID_max_len+15  //Max len of data in message it must be greater than the maximum size of EPC (EPC is always read fully) + ClouRFID_TID_max_len + 15 
+#define ClouRFID_EPC_max_len  12                          //Len of EPC code - 96bits / 12 bytes
+#define ClouRFID_TID_max_len  12                          //Len of TID code - 96bits / 12 bytes
+#define ClouRFID_MaxDataLen   12+ClouRFID_TID_max_len+15  //Max len of data in message. It must be greater than the maximum size of EPC (EPC is always read fully) + ClouRFID_TID_max_len + 15 
 #define ClouRFID_TAG_FIFO_len 20                          //Qty of EPC tags
 
 
@@ -130,10 +130,10 @@ class ClouRFID
     
     /* High lewel protocol functions */
     
-    uint8_t ErrorFilter(ClouRFID_Mes_t* Mess);                          //illegal command response detection
-    void StopRFID();                                                    //stop all RFID opperations 
-    uint8_t GetResp(ClouRFID_Mes_t* Mess);               //get response with timeout 
-    void AddTag(ClouRFID_Mes_t* Mess);  //Parse EPC read response and update tag FIFO
+    uint8_t ErrorFilter(ClouRFID_Mes_t* Mess); //illegal command response detection
+    void StopRFID();//stop all RFID opperations 
+    uint8_t GetResp(ClouRFID_Mes_t* Mess);//get response with timeout 
+    void AddTag(ClouRFID_Mes_t* Mess);//Parse EPC read response and update tag FIFO
 };
 
 #endif //ClouRFID_h
