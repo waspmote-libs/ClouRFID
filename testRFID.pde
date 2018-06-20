@@ -1,4 +1,10 @@
-/* Autor: Bykov Ivan <bykov.i.a.74@gmail.com> Date: June 19, 2018 for ANO RRC Airalab Rus */
+/*! \file testRFID.pde
+    \brief test sketch (waspmote) for Clou RFID reader minimal driver (RS232/RS485).
+    \version 0.1
+    \autors  Bykov Ivan <bykov.i.a.74@gmail.com> 
+    \date    June 19, 2018 
+    for ANO RRC Airalab Rus
+ */
 
 #include <Wasp485.h>
 #include <inttypes.h>

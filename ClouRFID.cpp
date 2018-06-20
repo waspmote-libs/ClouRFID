@@ -1,33 +1,55 @@
-/* Autor: Bykov Ivan <bykov.i.a.74@gmail.com> Date: June 19, 2018 for ANO RRC Airalab Rus */
+/*! \file ClouRFID.cpp
+    \brief Clou RFID reader minimal driver for waspmote (RS232/RS485).
+    \version 0.1
+    \autors  Bykov Ivan <bykov.i.a.74@gmail.com> 
+    \date    June 19, 2018 
+    for ANO RRC Airalab Rus
+ */
 
-
+/***********************************************************************
+ * Includes
+ ***********************************************************************/
+ 
 #include "ClouRFID.h"
 #include < Wasp485.h > #include < inttypes.h > #include "WaspClasses.h"
 
-# define CR_HEAD 0xAA //Frame head
-# define CR_IT_RS485(1 << (13 - 8)) //RS485 bit in Protocol control word 
-  # define CR_IT_RINI(1 << (12 - 8)) //Reader initiate message mark bit
-  # define CR_MT_RERR 0 //Reader error or warning message
-  # define CR_MT_RCFG 1 //Reader configuration and management message
-  # define CR_MT_RFID 2 //RFID Configuration and operation message
-  # define CR_MT_RLOG 3 //Reader log message
-  # define CR_MT_RUPD 4 //Reader app processor software and baseband software upgrade message.
-  # define CR_MT_RTST 5 //Testing command
-  # define CR_MT_MASK 0x07
+/*******************************************************************************
+ * Definitions 
+ ******************************************************************************/
+/* Frame head (frame byte 0) */
+# define CR_HEAD 0xAA  //!Frame head
 
-# define CR_ERR 0x00 //Illegal command response
+/* High byte of protocol control word (frame byte 1) */
+# define CR_IT_RS485(1 << (13 - 8)) //! RS485 mark bit
+# define CR_IT_RINI(1 << (12 - 8))  //! Reader initiate message mark bit
+/* Message type number (frame byte 1) */
+# define CR_MT_RERR 0 //! Reader error or warning message
+# define CR_MT_RCFG 1 //! Reader configuration and management message
+# define CR_MT_RFID 2 //! RFID Configuration and operation message
+# define CR_MT_RLOG 3 //! Reader log message
+# define CR_MT_RUPD 4 //! Reader app processor software and baseband software upgrade message.
+# define CR_MT_RTST 5 //!Testing command
+# define CR_MT_MASK 0x07 //! Mask for message type number
 
-# define CR_RFID_QueryReaderRFIDability 0x00 //Query reader RFID ability
-# define CR_RFID_ReadEPCtag 0x10 //Read EPC tag
-# define CR_RFID_StopCommand 0xFF //Stop command
+/* Low byte of protocol control word (frame byte 2) */
+# define CR_ERR 0x00 //! MID Illegal command response
 
-/* Start work with RS232/RS485 and USB (for debug)
- *  Prams:
- *    Baudrate - speed of port (bits / sec)
- *    Intrface - RS485 /  RS232
- *    RS485addres - addres on RS485 bus 
- *  Return ClouRFID_OK / ClouRFID_ERROR
- */
+# define CR_RFID_QueryReaderRFIDability 0x00 //! MID Query reader RFID ability
+# define CR_RFID_ReadEPCtag 0x10 //! MID Read EPC tag
+# define CR_RFID_StopCommand 0xFF //! MID Stop command
+
+/***********************************************************************
+ * Methods of the Class
+ ***********************************************************************/
+
+//!*************************************************************
+//! Name: Start()                          
+//! Description: tart work with RS232/RS485 and USB (for debug)
+//! Param : uint32_t Baudrate : speed of port (bits / sec)
+//!       : ClouRFID_Interface_t Intrface : RS485 /  RS232
+//!       : uint8_t RS485addres : addres on RS485 bus                            
+//! Returns: ClouRFID_OK / ClouRFID_ERROR (ClouRFID_RETURN_t)             
+//!*************************************************************
 ClouRFID_RETURN_t ClouRFID::Start(uint32_t Baudrate, ClouRFID_Interface_t Intrface, uint8_t RS485addres) {#
   if RFID_DEBUG_ON > 0
   USB.ON();
@@ -80,25 +102,30 @@ ClouRFID_RETURN_t ClouRFID::Start(uint32_t Baudrate, ClouRFID_Interface_t Intrfa
   return ClouRFID_ERROR;
 }
 
-void ClouRFID::ScanTags(uint8_t Ant) {#
-  if (ClouRFID_TID_max_len != 0) || (ClouRFID_EPC_max_len != 0) /* +++ User data len test here */
+//!*************************************************************
+//! Name: ScanTags()                          
+//! Description: Scan tags and add to FIFO
+//! Param: uint8_t Ant : Antena ID                         
+//! Returns: void             
+//!*************************************************************
+void ClouRFID::ScanTags(uint8_t Ant) {
+  # if (ClouRFID_TID_max_len != 0) || (ClouRFID_EPC_max_len != 0) /* +++ User data len test here */
   if (cParams.AntenaQty == 0) return;
   StopRFID();
   if (Ant >= cParams.AntenaQty) {
     Ant = cParams.AntenaQty;
   }
-  Ant--;#
-  if ClouRFID_TID_max_len == 0 //EPC only mode
+  Ant--;
+  # if ClouRFID_TID_max_len == 0 //EPC only mode
   cMess.Control = CR_MT_RFID;
   cMess.MessageID = CR_RFID_ReadEPCtag;
   cMess.Len = 2;
   cMess.Data[0] = (1 << Ant); //Antenna port No.
   cMess.Data[1] = 0; //0 - Single read mode: reader make one round tag reading on each enabled antenna, and then enter idle mode.
-  #
-  if RFID_DEBUG_ON > 0
-  USB.printf("\nRFID Start scan EPC only  ");#
-  endif#
-  else //EPC+TID or TID mode
+    # if RFID_DEBUG_ON > 0
+    USB.printf("\nRFID Start scan EPC only  ");
+    # endif
+  # else //EPC+TID or TID mode
     cMess.Control = CR_MT_RFID;
   cMess.MessageID = CR_RFID_ReadEPCtag;
   cMess.Len = 5;
@@ -108,10 +135,10 @@ void ClouRFID::ScanTags(uint8_t Ant) {#
   cMess.Data[2] = 2; //PID Number
   cMess.Data[3] = 0; //Byte 0: TID read mode configuration，0，TID read length self-adapter, but max. length not exceed byte 1 defined length.
   cMess.Data[4] = (ClouRFID_TID_max_len / 2); //Byte 1：TID data word length to be read (word，16bits，below same). (6+1)*2=14 bytes
-  #
-  if RFID_DEBUG_ON > 0
-  USB.printf("\nRFID Start scan EPC & TID");#
-  endif# endif //ClouRFID_TID_max_len==0 
+    # if RFID_DEBUG_ON > 0
+      USB.printf("\nRFID Start scan EPC & TID");
+    # endif
+  # endif //ClouRFID_TID_max_len==0 
 
   /* +++ User data read command here */
 
@@ -122,33 +149,38 @@ void ClouRFID::ScanTags(uint8_t Ant) {#
   SendPacket( & cMess);
 
   //Wait for response
-  if ((GetResp( & cMess) == 0) && (cMess.MessageID == CR_RFID_ReadEPCtag)) {#
-    if RFID_DEBUG_ON > 0
-    USB.printf("\nRFID Tag read Start! ");#
-    endif
+  if ((GetResp( & cMess) == 0) && (cMess.MessageID == CR_RFID_ReadEPCtag)) {
+    # if RFID_DEBUG_ON > 0
+    USB.printf("\nRFID Tag read Start! ");
+    # endif
     //Wait for tag read (MessageID == 0)
     while (GetResp( & cMess) == 0) { //EPC tag data upload 
-      if (cMess.MessageID == 0) {#
-        if RFID_DEBUG_ON > 0
-        USB.printf("\nRFID Tag read, Ant: %d ", Ant);#
-        endif
+      if (cMess.MessageID == 0) {
+        # if RFID_DEBUG_ON > 0
+        USB.printf("\nRFID Tag read, Ant: %d ", Ant);
+        # endif
         AddTag( & cMess);
       } else if (cMess.MessageID == 1) { //EPC tag reading finish 
-        #
-        if RFID_DEBUG_ON > 0
-        USB.printf("\nRFID Tag read End");#
-        endif
+        # if RFID_DEBUG_ON > 0
+          USB.printf("\nRFID Tag read End");
+        # endif
         return;
       }
     }
-  }#
-  if RFID_DEBUG_ON > 0
-  USB.printf("\nRFID Scan End");#
-  endif
+  }
+  # if RFID_DEBUG_ON > 0
+  USB.printf("\nRFID Scan End");
+  # endif
 
   # endif(ClouRFID_TID_max_len != 0) && (ClouRFID_EPC_max_len != 0)
 }
 
+//!*************************************************************
+//! Name: Stop()                          
+//! Description: Stop work with RS232/RS485 and USB (for debug)
+//! Param: void                         
+//! Returns: void             
+//!*************************************************************
 void ClouRFID::Stop() {
   StopRFID();
   PortDeIni();#
@@ -157,7 +189,12 @@ void ClouRFID::Stop() {
   endif
 }
 
-/* Get tag from FIFO */
+//!*************************************************************
+//! Name: Stop()                          
+//! Description: Get tag from FIFO
+//! Param : ClouRFID_Tag_t * Out : pointer to reading ClouRFID_Tag_t                         
+//! Returns: ClouRFID_OK / ClouRFID_ERROR ( ClouRFID_RETURN_t )             
+//!*************************************************************
 ClouRFID_RETURN_t ClouRFID::GetTag(ClouRFID_Tag_t * Out) {
     if (tagFIFO_count) {
       //Get TAG from FIFO
@@ -172,40 +209,40 @@ ClouRFID_RETURN_t ClouRFID::GetTag(ClouRFID_Tag_t * Out) {
       return ClouRFID_OK;
     }
     return ClouRFID_ERROR;
-  }
-  /* Get count of tags in FIFO */
+}
+
+//!*************************************************************
+//! Name: GetTagQty()                          
+//! Description: Get quantity of tags in FIFO
+//! Param: void                         
+//! Returns: quantity of tags in FIFO             
+//!*************************************************************
 uint16_t ClouRFID::GetTagQty() {
   return tagFIFO_count;
 }
 
-/* Get count of tags in FIFO */
+//!*************************************************************
+//! Name: GetAntQty()                          
+//! Description: Get quantity of antennas 
+//! Param: void                         
+//! Returns: quantity of reader antennas             
+//!*************************************************************
 uint8_t ClouRFID::GetAntQty() {
   return cParams.AntenaQty;
 }
 
-/* ini RS485 interface */
-uint8_t ClouRFID::PortIni(uint32_t baudRate) {
+//**********************************************************************
+// Private functions 
+//**********************************************************************
 
-  if (W485.ON() != 0) return 0xFF;
-  W485.baudRateConfig(baudRate); // Configure the baud rate of the module
-  W485.parityBit(DISABLE); // Configure the parity bit as disabled 
-  W485.stopBitConfig(1); // Use one stop bit configuration  
-  W485.transmission(DISABLE); // Disables the transmission - sniffing the bus
-  W485.flush(); // Clear both the receive and transmit FIFOs of all data contents.
-  return 0;
-}
-
-/* deini RS485 interface */
-void ClouRFID::PortDeIni() {
-  W485.OFF();#
-  if RFID_DEBUG_ON > 0
-  USB.OFF();#
-  endif
-}
-
-//Private functions
-/* Calculate CRC16 CCITT for 1 byte */
-//adopt CCITT-16, calibration polynomials is X16 + X15 + X2 + 1, initiation value is set as 0.
+//!*************************************************************
+//! Name: CalcCRC16()                          
+//! Description:  Calculation CRC16 CCITT for one byte 
+//!               calibration polynomials is X16 + X15 + X2 + 1, initiation value is set as 0.
+//! Param   : uint16_t* crcValue : pointer to used CRC value   
+//!         : uint8_t newByte : byte for add in CRC calculation                     
+//! Returns : void            
+//!*************************************************************
 void ClouRFID::CalcCRC16(uint16_t * crcValue, uint8_t newByte) {
   for (uint8_t i = 0; i < 8; i++) {
     if ((( * crcValue & 0x8000) >> 8) ^ (newByte & 0x80)) {
@@ -217,7 +254,12 @@ void ClouRFID::CalcCRC16(uint16_t * crcValue, uint8_t newByte) {
   }
 }
 
-/*  Send byte to RS485  */
+//!*************************************************************
+//! Name: SendByte()                          
+//! Description: Send one byte 
+//! Param : uint8_t Data : byte for send                        
+//! Returns: void           
+//!*************************************************************
 void ClouRFID::SendByte(uint8_t Data) {
   W485.send(Data);#
   if RFID_DEBUG_ON > 1
@@ -225,15 +267,20 @@ void ClouRFID::SendByte(uint8_t Data) {
   endif
 }
 
-/*  Build packet and send to RS485 */
+//!*************************************************************
+//! Name: SendPacket()                          
+//! Description: Send frame to reader 
+//! Param : ClouRFID_Mes_t * Mess : pointer to message for send
+//! Returns: void           
+//!*************************************************************
 void ClouRFID::SendPacket(ClouRFID_Mes_t * Mess) {
   //On TX
   W485.reception(DISABLE);
   W485.transmission(ENABLE);
-  delay(2);#
-  if RFID_DEBUG_ON > 1
-  USB.printf("\nRFID send:   ");#
-  endif
+  delay(2);
+  # if RFID_DEBUG_ON > 1
+    USB.printf("\nRFID send:   ");
+  # endif
 
   //Frame head
   SendByte((uint8_t)(CR_HEAD));
@@ -274,12 +321,17 @@ void ClouRFID::SendPacket(ClouRFID_Mes_t * Mess) {
   SendByte((uint8_t)(CRC >> 8));
   SendByte((uint8_t)(CRC & 0xFF));
 
-  #
-  if RFID_DEBUG_ON > 1
-  USB.printf("\n");#
-  endif
+  # if RFID_DEBUG_ON > 1
+    USB.printf("\n");
+  # endif
 }
 
+//!*************************************************************
+//! Name: GetPacket()                          
+//! Description: Receive frame from reader
+//! Param : ClouRFID_Mes_t * Mess : pointer to message for receive
+//! Returns: 0 - OK / 0xFF - FAIL/NO DATA             
+//!*************************************************************
 uint8_t ClouRFID::GetPacket(ClouRFID_Mes_t * Mess) {#
   if RFID_DEBUG_ON > 1
   USB.printf("\nRFID resive: ");#
@@ -378,7 +430,42 @@ uint8_t ClouRFID::GetPacket(ClouRFID_Mes_t * Mess) {#
   endif
 }
 
-/*Illegal command response detection */
+//!*************************************************************
+//! Name: PortIni()                          
+//! Description: RS232/RS485 port enable
+//! Param : uint32_t baudRate : speed of port (bits / sec)                         
+//! Returns: 0 - OK / 0xFF - FAIL             
+//!*************************************************************
+uint8_t ClouRFID::PortIni(uint32_t baudRate) {
+
+  if (W485.ON() != 0) return 0xFF;
+  W485.baudRateConfig(baudRate); // Configure the baud rate of the module
+  W485.parityBit(DISABLE); // Configure the parity bit as disabled 
+  W485.stopBitConfig(1); // Use one stop bit configuration  
+  W485.transmission(DISABLE); // Disables the transmission - sniffing the bus
+  W485.flush(); // Clear both the receive and transmit FIFOs of all data contents.
+  return 0;
+}
+
+//!*************************************************************
+//! Name: PortDeIni()                          
+//! Description: RS232/RS485 port disable
+//! Param: void                         
+//! Returns: void            
+//!*************************************************************
+void ClouRFID::PortDeIni() {
+  W485.OFF();#
+  if RFID_DEBUG_ON > 0
+  USB.OFF();#
+  endif
+}
+
+//!*************************************************************
+//! Name: ErrorFilter()                          
+//! Description: Illegal command response detection
+//! Param : ClouRFID_Mes_t * Mess : pointer to message for check
+//! Returns: 0 - OK / 0xFF - Mess == illegal command response            
+//!*************************************************************
 uint8_t ClouRFID::ErrorFilter(ClouRFID_Mes_t * Mess) {
   if (((Mess - > Control & CR_IT_RINI) != 0) && //Means this message is initiated by reader.
     (Mess - > MessageID == CR_ERR) && //Illegal command response
@@ -394,25 +481,12 @@ uint8_t ClouRFID::ErrorFilter(ClouRFID_Mes_t * Mess) {
   return 0;
 }
 
-/*Get response with timeout */
-uint8_t ClouRFID::GetResp(ClouRFID_Mes_t * Mess) {
-  //On RX
-  W485.transmission(DISABLE);
-  W485.reception(ENABLE);
-  uint8_t RetI = 5;
-  PackState = 0;
-  CRC = 0;
-  Temp = 0; //Reset parse state
-  while (RetI != 0) { //response received
-    //response is walid
-    if ((GetPacket(Mess) == 0) && (!ErrorFilter(Mess))) return 0;
-    RetI--;
-    delay(10);
-  }
-  return 1;
-}
-
-/*Stop RFID operations */
+//!*************************************************************
+//! Name: StopRFID()                          
+//! Description: Stop all RFID opperations
+//! Param : void
+//! Returns: void            
+//!*************************************************************
 void ClouRFID::StopRFID() {
   uint8_t Ret = 5;
   while (Ret != 0) {
@@ -439,7 +513,35 @@ void ClouRFID::StopRFID() {
   delay(200);
 }
 
-/* Parse EPC read response and update tag FIFO */
+//!*************************************************************
+//! Name: GetResp()                          
+//! Description: Receive response from reader
+//! Param : ClouRFID_Mes_t * Mess : pointer to message 
+//! Returns: 0 - response OK / 0xFF -no response            
+//!*************************************************************
+uint8_t ClouRFID::GetResp(ClouRFID_Mes_t * Mess) {
+  //On RX
+  W485.transmission(DISABLE);
+  W485.reception(ENABLE);
+  uint8_t RetI = 5;
+  PackState = 0;
+  CRC = 0;
+  Temp = 0; //Reset parse state
+  while (RetI != 0) { //response received
+    //response is walid
+    if ((GetPacket(Mess) == 0) && (!ErrorFilter(Mess))) return 0;
+    RetI--;
+    delay(10);
+  }
+  return 1;
+}
+
+//!*************************************************************
+//! Name: GetResp()                          
+//! Description: Parse EPC read response and update tag FIFO
+//! Param : ClouRFID_Mes_t * Mess : pointer to message with tag data 
+//! Returns: void           
+//!*************************************************************
 void ClouRFID::AddTag(ClouRFID_Mes_t * Mess) {
 
   uint16_t temp = 0;
@@ -453,19 +555,18 @@ void ClouRFID::AddTag(ClouRFID_Mes_t * Mess) {
   Tmp_Len += Mess - > Data[1];
 
   //Parse EPC
-  #
-  if ClouRFID_EPC_max_len > 0
-    //Set length
-  Tag_Tmp.EPC_Len = Tmp_Len;
-  //Read EPC
-  temp = 0;
-  index = 2;
-  End = Tag_Tmp.EPC_Len > ClouRFID_EPC_max_len ? ClouRFID_EPC_max_len : Tag_Tmp.EPC_Len;
-  while ((End != 0) && (index < Mess - > Len)) {
-    Tag_Tmp.EPC[temp++] = Mess - > Data[index++];
-    End--;
-  }#
-  endif //ClouRFID_EPC_max_len>0
+  #if ClouRFID_EPC_max_len > 0
+      //Set length
+    Tag_Tmp.EPC_Len = Tmp_Len;
+    //Read EPC
+    temp = 0;
+    index = 2;
+    End = Tag_Tmp.EPC_Len > ClouRFID_EPC_max_len ? ClouRFID_EPC_max_len : Tag_Tmp.EPC_Len;
+    while ((End != 0) && (index < Mess - > Len)) {
+      Tag_Tmp.EPC[temp++] = Mess - > Data[index++];
+      End--;
+    }
+  # endif //ClouRFID_EPC_max_len>0
 
   //Skip EPC end & PC
   index = Tmp_Len + 2 + 2;
@@ -490,20 +591,20 @@ void ClouRFID::AddTag(ClouRFID_Mes_t * Mess) {
   if (Mess - > Data[index++] == 3) { //Tag TID data  PID
     Tmp_Len = Mess - > Data[index++];
     Tmp_Len <<= 8;
-    Tmp_Len += Mess - > Data[index++];#
-    if ClouRFID_TID_max_len > 0
-    Tag_Tmp.TID_Len = Tmp_Len;#
-    endif //ClouRFID_TID_max_len>0
-    Tmp_Len += index;#
-    if ClouRFID_TID_max_len > 0
-    End = Tag_Tmp.TID_Len > ClouRFID_TID_max_len ? ClouRFID_TID_max_len : Tag_Tmp.TID_Len;
-    //Read TID
-    temp = 0;
-    while ((End != 0) && (index < Mess - > Len)) {
-      Tag_Tmp.TID[temp++] = Mess - > Data[index++];
-      End--;
-    }#
-    endif //ClouRFID_TID_max_len>0
+    Tmp_Len += Mess - > Data[index++];
+    # if ClouRFID_TID_max_len > 0
+      Tag_Tmp.TID_Len = Tmp_Len;
+    # endif //ClouRFID_TID_max_len>0
+    Tmp_Len += index;
+    # if ClouRFID_TID_max_len > 0
+      End = Tag_Tmp.TID_Len > ClouRFID_TID_max_len ? ClouRFID_TID_max_len : Tag_Tmp.TID_Len;
+      //Read TID
+      temp = 0;
+      while ((End != 0) && (index < Mess - > Len)) {
+        Tag_Tmp.TID[temp++] = Mess - > Data[index++];
+        End--;
+      }
+    # endif //ClouRFID_TID_max_len>0
     index = Tmp_Len;
   }
 
@@ -517,50 +618,48 @@ void ClouRFID::AddTag(ClouRFID_Mes_t * Mess) {
     while (temp != tagFIFO_in) {
 
       /* EPC match test */
-      #
-      if ClouRFID_EPC_max_len > 0
-      if (tagFIFO[temp].EPC_Len == Tag_Tmp.EPC_Len) { //if EPC == 0 it not add to FIFO
-        End = Tag_Tmp.EPC_Len > ClouRFID_EPC_max_len ? ClouRFID_EPC_max_len : Tag_Tmp.EPC_Len; //number of bytes for compare
-        index = 0; //compare index
-        while (End > 0) {
-          if (Tag_Tmp.EPC[index] != tagFIFO[temp].EPC[index]) break; //compare, break if no match
-          End--;
-          index++;
+      # if ClouRFID_EPC_max_len > 0
+        if (tagFIFO[temp].EPC_Len == Tag_Tmp.EPC_Len) { //if EPC == 0 it not add to FIFO
+          End = Tag_Tmp.EPC_Len > ClouRFID_EPC_max_len ? ClouRFID_EPC_max_len : Tag_Tmp.EPC_Len; //number of bytes for compare
+          index = 0; //compare index
+          while (End > 0) {
+            if (Tag_Tmp.EPC[index] != tagFIFO[temp].EPC[index]) break; //compare, break if no match
+            End--;
+            index++;
+          }
+          if (End > 0) { //EPC does not match
+            temp = (temp >= ClouRFID_TAG_FIFO_len - 1) ? 0 : (temp + 1); //to next tag in FIFO
+            continue; //go to next tag in FIFO (next loop of while(temp!=tagFIFO_in) )
+          }
         }
-        if (End > 0) { //EPC does not match
-          temp = (temp >= ClouRFID_TAG_FIFO_len - 1) ? 0 : (temp + 1); //to next tag in FIFO
-          continue; //go to next tag in FIFO (next loop of while(temp!=tagFIFO_in) )
-        }
-      }#
-      endif //ClouRFID_EPC_max_len>0
+      # endif //ClouRFID_EPC_max_len>0
 
       /* TID match test */
-      #
-      if ClouRFID_TID_max_len > 0
-      if (tagFIFO[temp].TID_Len == Tag_Tmp.TID_Len) {
-        End = Tag_Tmp.TID_Len > ClouRFID_TID_max_len ? ClouRFID_TID_max_len : Tag_Tmp.TID_Len; //number of bytes for compare
-        index = 0; //compare index
-        while (End > 0) {
-          if (Tag_Tmp.TID[index] != tagFIFO[temp].TID[index]) break; //compare, break if no match
-          End--;
-          index++;
+      # if ClouRFID_TID_max_len > 0
+        if (tagFIFO[temp].TID_Len == Tag_Tmp.TID_Len) {
+          End = Tag_Tmp.TID_Len > ClouRFID_TID_max_len ? ClouRFID_TID_max_len : Tag_Tmp.TID_Len; //number of bytes for compare
+          index = 0; //compare index
+          while (End > 0) {
+            if (Tag_Tmp.TID[index] != tagFIFO[temp].TID[index]) break; //compare, break if no match
+            End--;
+            index++;
+          }
+          if (End > 0) { //TID does not match
+            temp = (temp >= ClouRFID_TAG_FIFO_len - 1) ? 0 : (temp + 1); //to next tag in FIFO
+            continue; //go to next tag in FIFO (next loop of while(temp!=tagFIFO_in) )
+          }
         }
-        if (End > 0) { //TID does not match
-          temp = (temp >= ClouRFID_TAG_FIFO_len - 1) ? 0 : (temp + 1); //to next tag in FIFO
-          continue; //go to next tag in FIFO (next loop of while(temp!=tagFIFO_in) )
-        }
-      }#
-      endif //ClouRFID_EPC_max_len>0
+      # endif //ClouRFID_EPC_max_len>0
 
       /* +++ User data match test here */
 
       if (Tag_Tmp.RSSIdBm > tagFIFO[temp].RSSIdBm) { //better signal 
         tagFIFO[temp].RSSIdBm = Tag_Tmp.RSSIdBm;
         tagFIFO[temp].Ant = Tag_Tmp.Ant;
-      }#
-      if RFID_DEBUG_ON > 0
-      USB.printf("\nRFID EPC and/or TID match");#
-      endif
+      }
+      # if RFID_DEBUG_ON > 0
+        USB.printf("\nRFID EPC and/or TID match");
+      # endif
       return; //EPC and/or TID match - no need add tag in fifo
     }
   }
