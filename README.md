@@ -2,7 +2,8 @@
 Clou RFID reader minimal driver for waspmote (RS232/RS485) 
 
 # Installation
-Copy ClouRFID.cpp and ClouRFID.h in dirrectory for waspmote ([waspmote IDE](https://dillinger.io/)) project.
+Copy ClouRFID.cpp, ClouRFID.h, keywords.txt in dirrectory ~/Documents/Waspmote/libraries 
+(for Waspmote project ([waspmote IDE](https://dillinger.io/)))
 
 # Usage
 
